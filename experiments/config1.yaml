@@ -1,0 +1,16 @@
+parameters:
+  omega: 3.14
+  phi: 1
+  A: 1
+
+priors:
+  omega: [0, 5]
+  phi: [0, 6.28]
+  A: [0, 2]
+
+time_steps:
+  min: 0
+  max: 1
+  n: 100
+
+sigma: 0.1
