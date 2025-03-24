@@ -1,65 +1,46 @@
+from sbi.utils import p_values
+from sbi.model import lightning_MNRE
 from sbi.dataset import SimulatedDataset
-from sbi.model import MNRE, lightning_MNRE
-from sbi import Simulator  , PROJECT_ROOT
-import os , yaml
+from sbi import PROJECT_ROOT, Simulator
 from scipy.stats import uniform
+import matplotlib.pyplot as plt
+import argparse, yaml, torch, os
 import numpy as np
-import torch
-import argparse
-
-
-# Load the configuration file
-parser = argparse.ArgumentParser(description="Process configuration file path.")
-parser.add_argument('--config', type=str, required=True, help="Path to the configuration file.")
+parser = argparse.ArgumentParser(description="Generate posterior plots based on priors specified in a configuration file.")
+parser.add_argument("--config", type=str, required=True, help="Path to the configuration YAML file.")
 args = parser.parse_args()
 
-config_path = args.config
-with open(config_path, 'r') as file:
+#import samples from MC simulations:
+
+
+# load the configuration file
+with open(args.config, "r") as file:
     config = yaml.safe_load(file)
 
-simulator  = Simulator( sigma=config['sigma'], t=np.linspace(config['time_steps']['min'], config['time_steps']['max'], config['time_steps']['n']))  
-priors = [uniform(config['priors'][param][0], config['priors'][param][1] - config['priors'][param][0]) for param in config['priors']]
-mock_dataset = SimulatedDataset(simulator, priors , 1000)
-mock_dataloader = torch.utils.data.DataLoader(mock_dataset, batch_size=1, shuffle=False)
+# load the MNRE model
 lightning_model = lightning_MNRE.load_from_checkpoint(os.path.join(PROJECT_ROOT, 'trained_models', f'model_{config["model_name"]}.pth'))
+# generate observed data
+simulator = Simulator(config['sigma'], torch.linspace(config['time_steps']['min'], config['time_steps']['max'], config['time_steps']['n']))
+priors = [uniform(config['priors'][param][0], config['priors'][param][1] - config['priors'][param][0]) for param in config['priors']]
+param_names = list(config['priors'].keys())
+# for colorblind friendly colors
+param_colors = ['#E69F00', '#56B4E9', '#009E73', '#F0E442',]
+dataset = SimulatedDataset(simulator, priors, 100)
+observed_data = dataset.observed_data
+inj_params = dataset.parameters
 
-# create a evenly spaced parameter grid for each param
-param_grid = {}
-N_gridpoints = 100
-for param in config['priors']:
-    param_grid[param] = torch.linspace(config['priors'][param][0], config['priors'][param][1], N_gridpoints)
+credibility_levels = p_values(lightning_model, observed_data, inj_params, config, N_gridpoints=1000).detach().numpy()
 
-model_dict = {'omega': lightning_model.model.tail_1, 
-              'phi': lightning_model.model.tail_2, 
-              'A': lightning_model.model.tail_3}
-credibility_levels = {'omega': [], 'phi': [], 'A': []}
-for batch in mock_dataloader:
-    obs, par_inj, _ = batch
-    # repeat obs along 0th dimension so that it matches the shape of the param_grid
-    obs = obs.repeat(N_gridpoints, 1)
-    print(obs.shape)
-    for idx , param in enumerate( param_grid ) :
-        param_in = torch.zeros(N_gridpoints, 3)
-        par_grid = param_grid[param]
-        param_in[:, idx] = par_grid
-        nre_weights = torch.exp(lightning_model.model(obs, param_in))[:, idx]
-        nre_weights /= nre_weights.sum()#normalise
-        # Sort grid points by decreasing posterior density
-        sorted_indices = torch.argsort(nre_weights, descending=True)
-        sorted_weights = nre_weights[sorted_indices]
-        sorted_params = par_grid[sorted_indices]  # Reorder parameters in the grid by posterior density
+# now that credibility levels are computed, we can plot the pp-plot
+fig, ax = plt.subplots(figsize=(8, 8))
+# plot sorted pvalues 
+for idx in range(credibility_levels.shape[1]):
+    ax.plot(np.arange(1, len(credibility_levels[:,idx]) + 1) / len(credibility_levels[:,idx]), np.sort(credibility_levels[:,idx]), label=f'{param_names[idx]}', color=param_colors[idx])
 
-        # Compute cumulative sum of posterior mass in this order
-        cumulative_mass = torch.cumsum(sorted_weights, dim=0)
+ax.grid(visible=True)
+ax.plot([0, 1], [0, 1], 'k--')
+ax.set_xlabel('$\\alpha$')
+ax.set_ylabel('fraction of true parameters falling in the $\\alpha$ HPD region')
+ax.legend()
 
-        # Find where the injected parameter sits in the original (unsorted) grid
-        injected_value = par_inj[0, idx]  # True injected parameter value
-        injected_index = torch.argmin(torch.abs(par_grid - injected_value))  # Closest grid point
-        
-        # Locate the index of this injected parameter in the sorted list
-        sorted_rank = (sorted_indices == injected_index).nonzero(as_tuple=True)[0].item()
-        
-        # Credibility level is the cumulative probability at this index
-        credibility_level = cumulative_mass[sorted_rank]  
-        
-        credibility_levels[param].append(credibility_level.item())
+fig.savefig(os.path.join(PROJECT_ROOT, 'figures', f'pp_plot_{config["model_name"]}.pdf'))

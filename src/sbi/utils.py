@@ -2,7 +2,7 @@ from sbi.model import lightning_MNRE
 import torch
 def p_values(lightning_model: lightning_MNRE , data_obs: torch.Tensor, par_inj: torch.Tensor, config:dict, N_gridpoints:int=100):
     """
-    compute the p-values associated with each observation in a dataset. 
+    compute the p-values associated with each observation data_obs associated to an injected parameter par_inj.
     It means: for every instance of an observation, we evaluate the NRE estimate of the posterior, and we find the associated HPD region. In particular, 
     we find the smallest value of alpha such that the true (injected) parameter is contained within the alpha-HPD region.
     The results are useful to make a pp-plot. 
@@ -61,4 +61,4 @@ def p_values(lightning_model: lightning_MNRE , data_obs: torch.Tensor, par_inj: 
         # Get credibility level (cumulative mass at this rank)
         credibility_levels[:, param_idx] = cumulative_mass[torch.arange(num_obs), sorted_ranks]
 
-    print(credibility_levels)
+    return credibility_levels

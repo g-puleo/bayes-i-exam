@@ -66,29 +66,31 @@ class MNRE(  nn.Module ):
         return torch.cat((lnr_1, lnr_2, lnr_3, lnr_12, lnr_13, lnr_23), dim=1)
     
     def marginal_ratio_1(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_1 = self.tail_1(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_1 = self.tail_1.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_1
     def marginal_ratio_2(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_2 = self.tail_2(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_2 = self.tail_2.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_2
     def marginal_ratio_3(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_3 = self.tail_3(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_3 = self.tail_3.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_3
     def marginal_ratio_12(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_12 = self.tail_12(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_12 = self.tail_12.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_12
     def marginal_ratio_23(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_23 = self.tail_23(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_23 = self.tail_23.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_23
     def marginal_ratio_13(self, data, theta):
-        data_embed = self.data_processor(data)
-        lnr_13 = self.tail_13(torch.cat((data_embed, theta), dim=1))
+        data_embed = self.data_processor.forward(data)
+        lnr_13 = self.tail_13.forward(torch.cat((data_embed, theta), dim=1))
         return lnr_13
+    
+
 class lightning_MNRE ( L.LightningModule ):
     def __init__(self, model: MNRE, optimizer: str = 'adam', lr: float = 1e-3, weight_decay: float = 1e-5):
         super(lightning_MNRE, self).__init__()
@@ -145,4 +147,5 @@ class lightning_MNRE ( L.LightningModule ):
         self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('val_accuracy', accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss, accuracy
+    
     
