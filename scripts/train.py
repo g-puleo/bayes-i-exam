@@ -45,4 +45,4 @@ trainer = L.Trainer(max_epochs=50, callbacks=[EarlyStopping(monitor="val_accurac
 # Train the model
 trainer.fit(lightning_model, dataloader, val_dataloader)
 # Save the model
-trainer.save_checkpoint(os.path.join(PROJECT_ROOT, 'trained_models', f'model_{config["name"]}.pth'))
+trainer.save_checkpoint(os.path.join(PROJECT_ROOT, 'trained_models', f'model_{config["model_name"]}.pth'))

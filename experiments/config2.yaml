@@ -1,13 +1,13 @@
-name: "experiment1"
+name: "experiment2"
 parameters:
   omega: 3.14
   phi: 1
   A: 1
 
 priors:
-  omega: [0, 5]
-  phi: [0, 6.28]
-  A: [0, 2]
+  omega: [3,3.5]
+  phi: [0.75, 1.25]
+  A: [0.75,1.25]
 
 time_steps:
   min: 0

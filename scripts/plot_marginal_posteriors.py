@@ -5,6 +5,7 @@ from sbi import PROJECT_ROOT
 import argparse
 import yaml
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines  # For manual legend handles
 from scipy.stats import uniform
 from sbi.model import MNRE, lightning_MNRE
 import corner
@@ -22,7 +23,7 @@ with open(args.config, "r") as file:
     config = yaml.safe_load(file)
 mc_samples = np.load(os.path.join(PROJECT_ROOT,'data', f'MC_samples_{config["name"]}.npy')) # has shape (N_MC, n_params)
 # sample from the prior
-N_samples = 10000
+N_samples = 1000
 priors = config["priors"]
 sampled_params_prior  = {}
 for param in priors:
@@ -52,16 +53,26 @@ print(mc_samples.shape)
 mc_samples_df = pd.DataFrame(mc_samples, columns=list(priors.keys()))
 
 # Create a pairplot with KDE contour lines
-pairplot = sns.pairplot(mc_samples_df[::100], kind="kde", diag_kind="kde", corner=True)
+pairplot = sns.pairplot(mc_samples_df[::100], kind="kde", diag_kind="kde", corner=True, plot_kws={'levels': [0.01, 0.1,0.5], 'linestyles':['dotted', 'dashed','solid']},
+                        diag_kws={'fill':False})
 # Extract the marginal plots (diagonal) and add histograms of weighted prior samples
 for i, param in enumerate(priors.keys()):
     ax = pairplot.diag_axes[i]
     weighted_samples = sampled_params_prior[:, i].numpy()
     weights = np.exp(weights_nre[:,i])
-    ax.hist(weighted_samples, density=True, bins=30, weights=weights, alpha=0.5, color='orange')
-    ax.legend(["MCMC", "MNRE posterior"])
-
-# Extract the off-diagonal plots in a similar way
+    ax.hist(weighted_samples, density=True, bins=30, weights=weights, alpha=1, color='darkorange', histtype='step', linewidth=1)
+    # Add vertical lines for true parameter values
+    true_params = config["parameters"]
+    ax.axvline(true_params[param], color='red', linestyle='--', label='True value')
+    if i==0:
+        ax.legend(["MCMC", "MNRE", 'True value'], loc='center left', bbox_to_anchor=(1.5, 0.5))
+    # Extract the off-diagonal plots in a similar way
+omega_min=2.3
+omega_max=4
+phi_min=0.1
+phi_max=1.9
+A_min=0.5
+A_max=1.0
 for idx, ax in np.ndenumerate(pairplot.axes):
     i, j = idx
     if j >= i:
@@ -69,7 +80,6 @@ for idx, ax in np.ndenumerate(pairplot.axes):
     print(f'access axis {i}, {j}')
     print(f'done')
     print(type(ax))
-    ax.set_title(f"{i}, {j}")
     weighted_samples_i = sampled_params_prior[:, j].numpy()
     weighted_samples_j = sampled_params_prior[:, i].numpy()
     #lnr_1, lnr_2, lnr_3, lnr_12, lnr_13, lnr_23, want the 12, 13, 23 in the right order
@@ -84,10 +94,32 @@ for idx, ax in np.ndenumerate(pairplot.axes):
         y=weighted_samples_j,
         weights=weights_i * weights_j,
         ax=ax,
-        cmap='Reds',
+        linestyles=['dotted', 'dashed','solid'],
         fill=False,
-        levels=30
+        levels=[0.01,0.1, 0.5],
+        color='darkorange',
     )
+    if (j == 0 and i == 1 ) :
+        ax.set_ylim([phi_min,phi_max]) #phi, omega
+        ax.plot(config["parameters"]["omega"], config["parameters"]["phi"], 'r*', markersize=10, label='True value')
+        handles = [
+            mlines.Line2D([], [], color="black", linestyle="solid", label="50% level"),
+            mlines.Line2D([], [], color="black", linestyle="dashed", label="90% level"),
+            mlines.Line2D([], [], color="black", linestyle="dotted", label="99% level"),
+            mlines.Line2D([], [], color="red", linestyle="none", marker="*", label="True value"),
+        ]
+        ax.legend(handles=handles, loc='center left', bbox_to_anchor=(2.5, 0.5))
+
+    if (j == 1 and i == 2): # A, phi
+        ax.set_xlim([phi_min, phi_max])
+        ax.set_ylim([A_min, A_max])
+        ax.plot(config["parameters"]["phi"], config["parameters"]["A"], 'r*', markersize=10)
+
+    if (j == 0 and i == 2) : # A, omega
+        ax.set_xlim([omega_min, omega_max])
+        ax.set_ylim([A_min, A_max])
+        # add a star for the true value
+        ax.plot(config["parameters"]["omega"], config["parameters"]["A"], 'r*', markersize=10)
 # Adjust the layout and display the plot
 # pairplot.suptitle("Pairplot of Monte Carlo Samples", y=1.02)
-pairplot.figure.savefig(os.path.join(PROJECT_ROOT, 'figures', 'pairplot_mc_samples.png'))
+pairplot.figure.savefig(os.path.join(PROJECT_ROOT, 'figures', 'pairplot_mc_samples.pdf'), bbox_inches='tight')

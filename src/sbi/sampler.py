@@ -9,7 +9,7 @@ class Sampler:
         self.priors = prior_distributions
         self.state = np.zeros((1,len(self.priors)))
         for i in range(len(self.priors)):
-            self.state[0,i] = 0
+            self.state[0,i] = self.priors[i].rvs()
         self.observation = observed_data
         self.proposed_steps = 0
         self.accepted_steps = 0

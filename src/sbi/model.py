@@ -2,15 +2,22 @@ import torch
 from torch import nn
 import lightning as L
 import torch.nn.functional as F
+
 class MNRE(  nn.Module ):
 
-    def __init__(self, n_data, n_params, embed_size, hlayer_size, tail_hlayer_size):
-
+    def __init__(self, n_data, n_params, embed_size, data_hlayer_size, tail_hlayer_size):
+        '''
+        n_data: number of data points in an instance of the observed data
+        n_params: total number of parameters to be inferred
+        embed_size: size of the embedding layer for the data
+        data_hlayer_size: size of the hidden layer in the data processor
+        tail_hlayer_size: size of the hidden layer in the tails
+        '''
         super(MNRE, self).__init__()
         self.n_data = n_data
         self.n_params = n_params
 
-        self.data_processor = nn.Sequential(nn.Linear(n_data, hlayer_size), nn.ReLU(),  nn.Linear(hlayer_size, embed_size)) # a fully connected NN 
+        self.data_processor = nn.Sequential(nn.Linear(n_data, data_hlayer_size), nn.ReLU(),  nn.Linear(data_hlayer_size, embed_size)) # a fully connected NN 
 
         # each tail is a MLP that evaluates one of the marginal ratios
         self.tail_1 = nn.Sequential(
@@ -113,7 +120,16 @@ class lightning_MNRE ( L.LightningModule ):
         all_params = torch.cat((theta_joint, theta_scrambled), dim=0)
         logits = self.model(all_data, all_params) # has shape (batch_size*2, 6)
         labels = torch.cat((torch.ones(data.size(0), 6), torch.zeros(data.size(0), 6)), dim=0)
-        loss = F.binary_cross_entropy_with_logits(logits, labels)
+        loss = F.binary_cross_entropy_with_logits(logits, labels,reduction='none') # will have shape (batch_size*2, 6)
+        # log the loss for each tail
+        self.log('train_loss_1', loss[:, 0].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_2', loss[:, 1].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_3', loss[:, 2].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_12', loss[:, 3].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_13', loss[:, 4].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_23', loss[:, 5].mean(), on_step=False, on_epoch=True, prog_bar=True)
+        # log the total loss
+        loss = loss.mean() # mean over all tails
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
     
@@ -129,3 +145,4 @@ class lightning_MNRE ( L.LightningModule ):
         self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log('val_accuracy', accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss, accuracy
+    

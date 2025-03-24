@@ -12,9 +12,11 @@ class SimulatedDataset(Dataset):
         param_instances = []
         param_instances_scrambled = []
         for prior in self.priors:
-            param_instances.append(torch.Tensor(prior.rvs(size=N_samples)))
-            # sample also from the marginal by associating new parameters to the same data
-            param_instances_scrambled.append(torch.Tensor(prior.rvs(size=N_samples)))
+            x = torch.Tensor(prior.rvs(size=N_samples))
+            param_instances.append(x)  # sample from the prior
+            # sample also from the marginal by scrambling the parameters
+            param_instances_scrambled.append(torch.roll(x, shifts=1))  # avoid sampling twice by scrambling (theta, data) pairs
+
         self.parameters = torch.stack(param_instances, dim=1)
         self.parameters_scrambled = torch.stack(param_instances_scrambled, dim=1)
         self.observed_data = simulator.simulate(self.parameters).to(torch.float32)
