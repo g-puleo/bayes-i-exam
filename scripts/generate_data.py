@@ -17,4 +17,5 @@ parameters = np.array([[config["parameters"]["omega"],
 t = np.linspace(config["time_steps"]["min"], config["time_steps"]["max"], config["time_steps"]["n"])
 simulator = Simulator(config["sigma"], t ) 
 data = simulator.simulate(parameters)
-np.save(os.path.join(PROJECT_ROOT,"data", "observed_data.npy"), data)
+config_name = config["name"]
+np.save(os.path.join(PROJECT_ROOT,"data", f"observed_data_{config_name}.npy"), data)
