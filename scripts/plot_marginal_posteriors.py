@@ -11,6 +11,8 @@ from sbi.model import MNRE, lightning_MNRE
 import corner
 import seaborn as sns
 import pandas as pd
+torch.manual_seed(0)
+np.random.seed(0)
 parser = argparse.ArgumentParser(description="Generate posterior plots based on priors specified in a configuration file.")
 parser.add_argument("--config", type=str, required=True, help="Path to the configuration YAML file.")
 args = parser.parse_args()
@@ -39,8 +41,8 @@ sampled_params_prior = torch.tensor(np.array([sampled_params_prior[param] for pa
 # load the MNRE model
 lightning_model = lightning_MNRE.load_from_checkpoint(os.path.join(PROJECT_ROOT, 'trained_models', f'model_{config["model_name"]}.pth'))
 observed_data = torch.tensor(np.load(os.path.join(PROJECT_ROOT, 'data', f'observed_data_{config["name"]}.npy')), dtype=torch.float32).repeat(N_samples, 1)
-print(observed_data.dtype)
-print(sampled_params_prior.dtype)
+# print(observed_data.dtype)
+# print(sampled_params_prior.dtype)
 weights_nre = lightning_model.model(observed_data, sampled_params_prior).detach().numpy()
 # Create a corner plot of the Monte Carlo samples
 #figure = corner.corner(mc_samples, labels=list(priors.keys()), show_titles=True, density=True)
@@ -49,7 +51,7 @@ ndim = 3
 figure, axes = plt.subplots(ndim, ndim, figsize=(10, 10))
 # Convert mc_samples to a DataFrame for seaborn
 thinning= 500
-print(mc_samples.shape)
+#print(mc_samples.shape)
 mc_samples_df = pd.DataFrame(mc_samples, columns=list(priors.keys()))
 
 # Create a pairplot with KDE contour lines
@@ -67,19 +69,19 @@ for i, param in enumerate(priors.keys()):
     if i==0:
         ax.legend(["MCMC", "MNRE", 'True value'], loc='center left', bbox_to_anchor=(1.5, 0.5))
     # Extract the off-diagonal plots in a similar way
-omega_min=2.3
+omega_min=1
 omega_max=4
-phi_min=0.1
-phi_max=1.9
+phi_min=4
+phi_max=6
 A_min=0.5
-A_max=1.0
+A_max=1.5
 for idx, ax in np.ndenumerate(pairplot.axes):
     i, j = idx
     if j >= i:
         continue
-    print(f'access axis {i}, {j}')
-    print(f'done')
-    print(type(ax))
+    # print(f'access axis {i}, {j}')
+    # print(f'done')
+    # print(type(ax))
     weighted_samples_i = sampled_params_prior[:, j].numpy()
     weighted_samples_j = sampled_params_prior[:, i].numpy()
     #lnr_1, lnr_2, lnr_3, lnr_12, lnr_13, lnr_23, want the 12, 13, 23 in the right order

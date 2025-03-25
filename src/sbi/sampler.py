@@ -10,13 +10,15 @@ class Sampler:
         self.state = np.zeros((1,len(self.priors)))
         for i in range(len(self.priors)):
             self.state[0,i] = self.priors[i].rvs()
+            print(f"initial state {i}: {self.state[0,i]}")
         self.observation = observed_data
         self.proposed_steps = 0
         self.accepted_steps = 0
         self.std = std
 
     def proposal(self, par_0) :
-        return par_0 + self.std * np.random.normal(size=par_0.shape)
+        delta = self.std * np.random.normal(size=par_0.shape)
+        return par_0 + delta
 
     def step(self):
         par_new = self.proposal(self.state)
@@ -29,15 +31,17 @@ class Sampler:
             if a>1:
                 self.accepted_steps+=1
                 self.state=par_new
+                return True
             else:
                 r = np.random.uniform()
                 if r<a:
                     self.accepted_steps+=1
                     self.state=par_new
+                    return True
                 else:
-                    pass
+                    return False
         else:
-            pass
+            return False
         
     def print_info(self ):
         print(f"acceptance ratio: {self.accepted_steps/self.proposed_steps}")

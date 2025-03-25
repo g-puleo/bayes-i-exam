@@ -3,6 +3,8 @@ from torch.utils.data import Dataset, DataLoader
 from scipy.stats import rv_continuous, uniform
 import numpy as np
 import torch
+# set all seeds
+
 class SimulatedDataset(Dataset):
     def __init__(self, simulator, priors:list[rv_continuous], N_samples):
         self.simulator = simulator
